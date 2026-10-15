@@ -1,0 +1,29 @@
+// Values from <winver.h>, which the resource preprocessor cannot see when cross-compiling.
+#define VS_VERSION_INFO 1
+#define VOS_NT_WINDOWS32 0x00040004L
+#define VFT_APP 0x00000001L
+
+IDI_ICON1 ICON "@UIFLOW_ICO@"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "FileDescription", "ui-flow - UI flow designer"
+            VALUE "FileVersion",     "@UIFLOW_VERSION_STRING@"
+            VALUE "ProductName",     "ui-flow"
+            VALUE "ProductVersion",  "@UIFLOW_VERSION_STRING@"
+            VALUE "OriginalFilename", "ui-flow.exe"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

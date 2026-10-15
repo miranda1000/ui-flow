@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ui-flow:app-file:1",
+  "title": "ui-flow app file",
+  "description": "One ui-flow app: screens (an image each), hotspots on them and links between screens. Format version 1. See docs/file-format.md for the semantics that a schema cannot express (references between ids, coordinate systems, how loading treats errors).",
+  "type": "object",
+  "required": ["format"],
+  "properties": {
+    "format": {
+      "description": "Marks the file as a ui-flow app.",
+      "const": "ui-flow"
+    },
+    "version": {
+      "description": "Format version. Files with a higher version than the program supports are rejected.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1,
+      "default": 1
+    },
+    "name": {
+      "description": "Name of the app, shown in the window title and the export.",
+      "type": "string",
+      "default": "Untitled"
+    },
+    "startScreen": {
+      "description": "Id of the screen the flow (and the player) starts at. Empty or unknown: the first screen.",
+      "type": "string",
+      "default": ""
+    },
+    "screens": {
+      "description": "Screens in drawing order (later ones are drawn on top on the canvas).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/screen" },
+      "default": []
+    },
+    "links": {
+      "description": "Interactions: arrows from a screen (or one of its hotspots) to a screen.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/link" },
+      "default": []
+    },
+    "images": {
+      "description": "Embedded images, referenced by screens[].image. Written last so the structure stays at the top of the file.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/image" },
+      "default": []
+    }
+  },
+  "$defs": {
+    "id": {
+      "description": "Identifier. ui-flow generates \"<kind>-<n>\" (screen-3, hotspot-7, link-2, img-4) with one counter for the whole file, but any non-empty string unique among its kind works.",
+      "type": "string",
+      "minLength": 1
+    },
+    "screen": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id", "description": "Unique among screens (duplicates make the file invalid)." },
+        "name": { "type": "string", "description": "Display name. Missing: the id." },
+        "image": { "type": "string", "description": "Id of an entry in images[]. Unknown: a grey placeholder is shown." },
+        "x": { "type": "number", "default": 0, "description": "Canvas position of the image's top-left corner (canvas units)." },
+        "y": { "type": "number", "default": 0 },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1,
+          "description": "Canvas units per image pixel: the screen is (width * scale) x (height * scale) on the canvas. Non-positive values are read as 1."
+        },
+        "notes": { "type": "string", "default": "", "description": "Free text. Omitted when empty." },
+        "hotspots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/hotspot" },
+          "default": []
+        }
+      }
+    },
+    "hotspot": {
+      "description": "A clickable area of a screen. The rectangle is in image pixels (origin top-left), independent of the screen's scale.",
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id", "description": "Unique within its screen (ui-flow makes them unique in the whole file)." },
+        "name": { "type": "string", "default": "" },
+        "x": { "type": "number", "default": 0 },
+        "y": { "type": "number", "default": 0 },
+        "w": { "type": "number", "default": 0 },
+        "h": { "type": "number", "default": 0 }
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": ["id", "from", "to"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id", "description": "Unique among links." },
+        "from": { "type": "string", "description": "Id of the source screen." },
+        "hotspot": {
+          "type": "string",
+          "description": "Id of a hotspot of the source screen: clicking it follows the link. Absent (or empty): a described, screen-level transition."
+        },
+        "to": { "type": "string", "description": "Id of the target screen (may equal `from`)." },
+        "message": {
+          "type": "string",
+          "default": "",
+          "description": "What the user does, e.g. \"user types command help\". For hotspot links an optional note (condition, input...)."
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "required": ["id", "data"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id", "description": "Unique among images." },
+        "file": { "type": "string", "description": "Original file name (informative)." },
+        "mime": { "type": "string", "description": "Media type of `data`, e.g. image/png or image/jpeg (informative; the content is sniffed)." },
+        "width": { "type": "integer", "minimum": 0, "description": "Pixel size of the decoded image. Used for layout without decoding: must match the data." },
+        "height": { "type": "integer", "minimum": 0 },
+        "data": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "The original image file (PNG, JPEG, BMP, GIF, TGA, PSD...) in standard base64, unchanged. Line breaks are tolerated when reading."
+        }
+      }
+    }
+  }
+}
