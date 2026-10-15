@@ -1,0 +1,51 @@
+{
+  "format": "ui-flow",
+  "version": 1,
+  "name": "Kettle",
+  "startScreen": "screen-1",
+  "screens": [
+    {
+      "id": "screen-1",
+      "name": "Welcome",
+      "image": "img-1",
+      "x": 0,
+      "y": 0,
+      "scale": 0.4265,
+      "hotspots": [
+        {
+          "id": "hotspot-1",
+          "name": "Get started",
+          "x": 48,
+          "y": 1400,
+          "w": 684,
+          "h": 112
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "id": "link-1",
+      "from": "screen-1",
+      "hotspot": "hotspot-1",
+      "to": "screen-2",
+      "message": ""
+    },
+    {
+      "id": "link-9",
+      "from": "screen-5",
+      "to": "screen-2",
+      "message": "after 5 seconds"
+    }
+  ],
+  "images": [
+    {
+      "id": "img-1",
+      "file": "welcome.png",
+      "mime": "image/png",
+      "width": 780,
+      "height": 1688,
+      "data": "iVBORw0KGgoAAAANSUhEUgAA..."
+    }
+  ]
+}
