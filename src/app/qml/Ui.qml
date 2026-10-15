@@ -24,6 +24,9 @@ QtObject {
 
     readonly property var zoomTarget: view === "edit" ? editor : canvas
 
+    // Questions, bug reports and ideas (welcome page, app menu).
+    readonly property string issuesUrl: "https://github.com/miranda1000/ui-flow/issues"
+
     function selectScreen(id) { selectedLink = ""; selectedScreen = id || "" }
     function selectLink(id) { selectedScreen = ""; selectedLink = id || "" }
     function clearSelection() { selectedScreen = ""; selectedLink = "" }

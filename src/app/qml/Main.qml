@@ -7,8 +7,8 @@ ApplicationWindow {
     id: win
     width: Doc.startup.width || 1440
     height: Doc.startup.height || 900
-    minimumWidth: 960
-    minimumHeight: 600
+    minimumWidth: Doc.web ? 0 : 960     // web: the window is the page, whatever its size
+    minimumHeight: Doc.web ? 0 : 600
     visible: true
     color: Theme.canvas
     font.family: Theme.fontFamily
@@ -20,19 +20,53 @@ ApplicationWindow {
                                       || unsavedDialog.visible || errorDialog.visible
 
     // --- actions used from menus, panels and shortcuts
+    // Web: no file dialogs - files come from the browser's picker, saving downloads them
+    // (Doc.suggestedFile() is then just the download's name).
+    readonly property string imageTypes: ".png,.jpg,.jpeg,.bmp,.gif,.tga,.psd"
     function newApp() { newAppDialog.openFresh() }
-    function openApp() { openDialog.open() }
+    function openApp() {
+        if (Doc.web)
+            Doc.browseFiles(".json,application/json", false, urls => win.openFile(urls[0]))
+        else
+            openDialog.open()
+    }
+    function openFile(url) {
+        if (Doc.dirty && Doc.filePath)
+            Doc.save()
+        Doc.openApp(Doc.localPath(url))
+    }
     function save() { Doc.save() }
     function saveAs() {
+        if (Doc.web) {
+            win.savedAs(Doc.suggestedFile("json"))
+            return
+        }
         saveDialog.selectedFile = Doc.suggestedFile("json")
         saveDialog.open()
     }
+    function savedAs(path) {
+        if (Doc.saveAs(path) && win.quitting)
+            Qt.quit()
+    }
     function exportMarkdown() {
+        if (Doc.web) {
+            Doc.exportMarkdown(Doc.suggestedFile("md"))
+            return
+        }
         exportDialog.selectedFile = Doc.suggestedFile("md")
         exportDialog.open()
     }
-    function addImages() { imagesDialog.open() }
+    function addImages() {
+        if (Doc.web)
+            Doc.browseFiles(imageTypes, true, urls => Doc.addImages(urls, 0, 0, false))
+        else
+            imagesDialog.open()
+    }
     function replaceImage(screenId) {
+        if (Doc.web) {
+            Doc.browseFiles(imageTypes, false, urls => Doc.replaceImage(screenId, urls[0]))
+            return
+        }
         replaceDialog.screenId = screenId
         replaceDialog.open()
     }
@@ -177,11 +211,7 @@ ApplicationWindow {
         title: qsTr("Open app")
         fileMode: FileDialog.OpenFile
         nameFilters: [qsTr("ui-flow apps (*.json)"), qsTr("All files (*)")]
-        onAccepted: {
-            if (Doc.dirty && Doc.filePath)
-                Doc.save()
-            Doc.openApp(Doc.localPath(selectedFile))
-        }
+        onAccepted: win.openFile(selectedFile)
     }
     FileDialog {
         id: newFileDialog
@@ -197,10 +227,7 @@ ApplicationWindow {
         fileMode: FileDialog.SaveFile
         defaultSuffix: "json"
         nameFilters: [qsTr("ui-flow apps (*.json)")]
-        onAccepted: {
-            if (Doc.saveAs(Doc.localPath(selectedFile)) && win.quitting)
-                Qt.quit()
-        }
+        onAccepted: win.savedAs(Doc.localPath(selectedFile))
         onRejected: win.quitting = false
     }
     FileDialog {
@@ -232,6 +259,10 @@ ApplicationWindow {
         onAccepted: {
             if (Doc.dirty && Doc.filePath)
                 Doc.save()
+            if (Doc.web) {  // nothing to choose: the first save downloads it
+                Doc.newApp(appName, "")
+                return
+            }
             newFileDialog.selectedFile = Doc.suggestedFile("json", appName)
             newFileDialog.open()
         }
@@ -282,5 +313,5 @@ ApplicationWindow {
         onActivated: Ui.play(Ui.view === "edit" ? Ui.editScreen : Ui.selectedScreen)
     }
     Shortcut { sequences: ["F1", "Ctrl+/"]; onActivated: win.showShortcuts() }
-    Shortcut { sequences: [StandardKey.Quit, "Ctrl+Q"]; onActivated: win.quit() }
+    Shortcut { sequences: [StandardKey.Quit, "Ctrl+Q"]; enabled: !Doc.web; onActivated: win.quit() }
 }

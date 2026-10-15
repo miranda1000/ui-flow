@@ -15,6 +15,7 @@
 
 #include <QAbstractListModel>
 #include <QHash>
+#include <QJSValue>
 #include <QMutex>
 #include <QObject>
 #include <QPointF>
@@ -126,6 +127,8 @@ class FlowController : public QObject {
     Q_PROPERTY(QObject* links READ links CONSTANT)
     Q_PROPERTY(QVariantMap startup READ startup CONSTANT)
     Q_PROPERTY(QString version READ version CONSTANT)
+    // WebAssembly build: files are opened through the browser and saved as downloads.
+    Q_PROPERTY(bool web READ web CONSTANT)
 
 public:
     // Not default-constructible on purpose: QML must use create() (the instance made in
@@ -158,6 +161,7 @@ public:
     QObject* links() { return &linkModel_; }
     QVariantMap startup() const { return startup_; }
     QString version() const;
+    bool web() const;
 
     // --- files ---
     Q_INVOKABLE bool newApp(const QString& name, const QString& path);
@@ -170,6 +174,9 @@ public:
     Q_INVOKABLE QUrl fileUrl(const QString& path) const;
     Q_INVOKABLE QString suggestedFile(const QString& extension, const QString& baseName = QString()) const;
     Q_INVOKABLE void forgetRecent(const QString& path);
+    // Web only (the desktop uses FileDialog): the browser's file picker; `callback` gets
+    // the file URLs, readable only while it runs. `accept` as in <input type="file">.
+    Q_INVOKABLE void browseFiles(const QString& accept, bool multiple, const QJSValue& callback);
 
     // --- screens ---
     Q_INVOKABLE QString addImages(const QList<QUrl>& urls, qreal x, qreal y, bool atPosition);
@@ -263,6 +270,7 @@ private:
     LinkModel linkModel_;
     ImageProvider* provider_ = nullptr;
     bool providerTaken_ = false;
+    QJSEngine* engine_ = nullptr;
 };
 
 } // namespace uiflow

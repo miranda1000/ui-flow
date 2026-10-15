@@ -6,7 +6,7 @@ set -euo pipefail
 
 SRC_DIR=${SRC_DIR:-/src}
 BUILD_ROOT=${UIFLOW_BUILD_ROOT:-$SRC_DIR/build}
-ALL_TARGETS=(linux-x64 linux-arm64 windows-x64 windows-arm64)
+ALL_TARGETS=(linux-x64 linux-arm64 windows-x64 windows-arm64 web)
 CONFIG=Release
 CLEAN=0
 PACKAGE=1
@@ -15,14 +15,15 @@ TARGETS=()
 usage() {
     cat <<EOF
 Usage: build.sh [--release | --debug] [--target <t>]... [--clean] [--no-package]
-  --target   linux-x64 | linux-arm64 | windows-x64 | windows-arm64 | all (default: all;
-             repeat it or give a comma-separated list)
+  --target   linux-x64 | linux-arm64 | windows-x64 | windows-arm64 | web | all (default:
+             all; repeat it or give a comma-separated list)
   --release  optimised build (default)
   --debug    unoptimised build with debug info (Windows: console subsystem)
   --clean    delete the build directories before configuring
   --no-package  build and deploy into dist/ but do not create the .zip / .tar.gz
 Output: dist/ui-flow-<version>-<target>[-debug].zip (Windows) / .tar.gz (Linux); the
 unpacked folder stays next to the build trees (\$UIFLOW_BUILD_ROOT/dist, see run.sh).
+Web: dist/ui-flow-<version>-web/ (the static site, serve it over HTTP) and its .zip.
 EOF
 }
 
@@ -55,6 +56,19 @@ done
 SUFFIX=""
 [[ $CONFIG == Debug ]] && SUFFIX="-debug"
 
+# Emscripten builds its system libraries on first use: keep them in the build volume.
+export EM_CACHE=${EM_CACHE:-$BUILD_ROOT/emscripten-cache}
+
+# Copies the files of a small folder to the bind-mounted source tree one by one, then
+# compares them: some network shares mix up files created within milliseconds.
+copy_tree_paced() {  # copy_tree_paced <from> <to>
+    local from=$1 to=$2 f
+    rm -rf "$to"
+    (cd "$from" && find . -type d) | while read -r f; do mkdir -p "$to/$f"; done
+    (cd "$from" && find . -type f) | while read -r f; do cp "$from/$f" "$to/$f"; sleep 0.3; done
+    diff -r "$from" "$to" > /dev/null || { echo "build.sh: copy of $from to $to differs" >&2; return 1; }
+}
+
 echo "==> $CONFIG build of: ${TARGETS[*]}"
 echo "    toolchain: ${UIFLOW_TOOLCHAIN_VERSION:-unknown}"
 
@@ -81,12 +95,14 @@ for target in "${TARGETS[@]}"; do
     echo "==> [$target] deploy -> $DIST_DIR/"
     rm -rf "$DIST_DIR"
     cmake --install "$BUILD_DIR" --prefix "$DIST_DIR" > /dev/null
-    python3 "$SRC_DIR/scripts/deploy.py" --target "$target" --dist "$DIST_DIR" --qml "$SRC_DIR/src/app/qml"
+    if [[ $target != web ]]; then  # web: one static module, nothing to deploy
+        python3 "$SRC_DIR/scripts/deploy.py" --target "$target" --dist "$DIST_DIR" --qml "$SRC_DIR/src/app/qml"
+    fi
     bash "$SRC_DIR/scripts/licenses.sh" "$DIST_DIR"
 
     if [[ $PACKAGE -eq 1 ]]; then
         mkdir -p "$SRC_DIR/dist"
-        if [[ $target == windows-* ]]; then
+        if [[ $target == windows-* || $target == web ]]; then
             ARCHIVE="$NAME.zip"
             rm -f "$STAGE_ROOT/$ARCHIVE"
             (cd "$STAGE_ROOT" && zip -qr9 "$ARCHIVE" "$NAME")
@@ -96,6 +112,10 @@ for target in "${TARGETS[@]}"; do
         fi
         cp "$STAGE_ROOT/$ARCHIVE" "$SRC_DIR/dist/$ARCHIVE"
         echo "==> [$target] dist/$ARCHIVE ($(du -h --apparent-size "$SRC_DIR/dist/$ARCHIVE" | cut -f1))"
+        if [[ $target == web ]]; then
+            copy_tree_paced "$DIST_DIR" "$SRC_DIR/dist/$NAME"
+            echo "==> [$target] dist/$NAME/ (static site: serve it over HTTP)"
+        fi
     fi
 done
 

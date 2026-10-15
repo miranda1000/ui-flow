@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Build environment for ui-flow (Qt 6 / QML): one image, four targets, all built on an
+# Build environment for ui-flow (Qt 6 / QML): one image, five targets, all built on an
 # x86_64 Linux host.
 #
 #   target          compiler                              Qt (official binaries, aqtinstall)
@@ -8,6 +8,7 @@
 #   linux-arm64     gcc-aarch64-linux-gnu 13 (multiarch)  linux_gcc_arm64
 #   windows-x64     clang-cl + lld-link (MSVC ABI)        win64_msvc2022_64
 #   windows-arm64   clang-cl + lld-link (MSVC ABI)        win64_msvc2022_arm64_cross_compiled
+#   web             emscripten (emsdk)                    wasm_singlethread (static website)
 #
 #   MSVC CRT + Windows SDK : downloaded with xwin for x86_64 and aarch64
 #                            (building this image means accepting Microsoft's license terms)
@@ -116,6 +117,22 @@ RUN set -eux; \
 RUN apt-get update && apt-get install -y --no-install-recommends librsvg2-bin xdotool python3-jsonschema \
     && rm -rf /var/lib/apt/lists/*
 
+# --- WebAssembly (target "web"): Emscripten at the exact version Qt's wasm build was made
+#     with (Qt checks it: QT_EMCC_RECOMMENDED_VERSION), and Qt for WebAssembly (static,
+#     single-threaded: no COOP/COEP headers needed on the web server). ---
+ARG EMSDK_VERSION=4.0.7
+RUN git clone -q https://github.com/emscripten-core/emsdk.git /opt/emsdk \
+    && cd /opt/emsdk \
+    && ./emsdk install ${EMSDK_VERSION} \
+    && ./emsdk activate ${EMSDK_VERSION} \
+    && rm -rf /opt/emsdk/.git /opt/emsdk/zips /opt/emsdk/downloads
+RUN python3 -m venv /tmp/aqt \
+    && /tmp/aqt/bin/pip install --no-cache-dir "aqtinstall==${AQT_VERSION}" \
+    && cd /tmp \
+    && /tmp/aqt/bin/aqt install-qt all_os wasm ${QT_VERSION} wasm_singlethread -O /opt/qt \
+    && rm -rf /tmp/aqt /tmp/aqtinstall.log \
+    && test -f /opt/qt/${QT_VERSION}/wasm_singlethread/lib/cmake/Qt6/qt.toolchain.cmake
+
 ENV LANG=C.UTF-8 \
     XWIN_DIR=/opt/xwin \
     UIFLOW_DEPS_DIR=/opt/deps \
@@ -124,7 +141,9 @@ ENV LANG=C.UTF-8 \
     QT_LINUX_ARM64_PATH=/opt/qt/${QT_VERSION}/gcc_arm64 \
     QT_WIN_X64_PATH=/opt/qt/${QT_VERSION}/msvc2022_64 \
     QT_WIN_ARM64_PATH=/opt/qt/${QT_VERSION}/msvc2022_arm64 \
-    UIFLOW_TOOLCHAIN_VERSION="gcc-13 llvm-${LLVM_VERSION} qt-${QT_VERSION} xwin-${XWIN_VERSION} json-${JSON_TAG}"
+    QT_WASM_PATH=/opt/qt/${QT_VERSION}/wasm_singlethread \
+    EMSDK=/opt/emsdk \
+    UIFLOW_TOOLCHAIN_VERSION="gcc-13 llvm-${LLVM_VERSION} qt-${QT_VERSION} xwin-${XWIN_VERSION} emsdk-${EMSDK_VERSION} json-${JSON_TAG}"
 
 WORKDIR /src
 CMD ["bash", "/src/scripts/build.sh"]

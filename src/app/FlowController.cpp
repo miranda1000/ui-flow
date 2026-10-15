@@ -15,6 +15,10 @@
 #include <QSettings>
 #include <QStandardPaths>
 
+#ifdef Q_OS_WASM
+#include "WebPlatform.h"
+#endif
+
 #include <algorithm>
 #include <cmath>
 
@@ -29,6 +33,12 @@ namespace {
 constexpr size_t kUndoLimit = 200;
 constexpr float kMaxScreenSide = 720.0f;   // canvas size of a new screen's longest side
 constexpr float kScreenGap = 120.0f;
+
+#ifdef Q_OS_WASM
+constexpr bool kWeb = true;
+#else
+constexpr bool kWeb = false;
+#endif
 
 FlowController* s_instance = nullptr;
 
@@ -270,8 +280,13 @@ FlowController::FlowController(QObject* parent) : QObject(parent), provider_(new
     linkModel_.setSource(&doc_);
 
     QSettings settings;
-    recent_ = settings.value("recentFiles").toStringList();
-    autosave_ = settings.value("autosave", true).toBool();
+    // Web: no recent files (nothing to reopen them from) and no autosave (a save is a download).
+    if (!kWeb) {
+        recent_ = settings.value("recentFiles").toStringList();
+        autosave_ = settings.value("autosave", true).toBool();
+    } else {
+        autosave_ = false;
+    }
     wheelZooms_ = settings.value("wheelZooms", true).toBool();
 
     autosaveTimer_.setSingleShot(true);
@@ -284,9 +299,10 @@ FlowController::FlowController(QObject* parent) : QObject(parent), provider_(new
 
 FlowController* FlowController::instance() { return s_instance; }
 
-FlowController* FlowController::create(QQmlEngine*, QJSEngine*)
+FlowController* FlowController::create(QQmlEngine*, QJSEngine* engine)
 {
     QJSEngine::setObjectOwnership(s_instance, QJSEngine::CppOwnership);
+    s_instance->engine_ = engine;
     return s_instance;
 }
 
@@ -304,9 +320,11 @@ QString FlowController::startScreen() const { return qs(doc_.startScreenId()); }
 
 QString FlowController::version() const { return QStringLiteral(UIFLOW_VERSION); }
 
+bool FlowController::web() const { return kWeb; }
+
 void FlowController::setAutosave(bool on)
 {
-    if (autosave_ == on)
+    if (autosave_ == on || kWeb)
         return;
     autosave_ = on;
     QSettings().setValue("autosave", on);
@@ -376,16 +394,25 @@ void FlowController::setDirty(bool d)
     if (dirty_ == d)
         return;
     dirty_ = d;
+#ifdef Q_OS_WASM
+    web::setLeaveWarning(d);
+#endif
     emit dirtyChanged();
 }
 
 bool FlowController::writeTo(const QString& path)
 {
+#ifdef Q_OS_WASM
+    // The browser saves the download; `path` only provides its name.
+    const std::string json = toJson(doc_);
+    web::download(QFileInfo(path).fileName(), QByteArray::fromStdString(json), QStringLiteral("application/json"));
+#else
     std::string err;
     if (!writeFileAtomic(ss(path), toJson(doc_), &err)) {
         emit errorOccurred(qs(err));
         return false;
     }
+#endif
     if (path_ != path) {
         path_ = path;
         emit fileChanged();
@@ -397,7 +424,7 @@ bool FlowController::writeTo(const QString& path)
 
 void FlowController::addRecent(const QString& path)
 {
-    if (!recent_.isEmpty() && recent_.front() == path)
+    if (kWeb || (!recent_.isEmpty() && recent_.front() == path))
         return;
     recent_.removeAll(path);
     recent_.prepend(path);
@@ -453,7 +480,7 @@ bool FlowController::save()
     autosaveTimer_.stop();
     if (!writeTo(path_))
         return false;
-    emit toast(tr("Saved"));
+    emit toast(kWeb ? tr("Downloaded %1").arg(fileName()) : tr("Saved"));
     return true;
 }
 
@@ -464,7 +491,7 @@ bool FlowController::saveAs(const QString& path)
         p += QStringLiteral(".json");
     if (!writeTo(p))
         return false;
-    emit toast(tr("Saved as %1").arg(QFileInfo(p).fileName()));
+    emit toast((kWeb ? tr("Downloaded %1") : tr("Saved as %1")).arg(QFileInfo(p).fileName()));
     return true;
 }
 
@@ -473,11 +500,16 @@ bool FlowController::exportMarkdown(const QString& path)
     QString p = path;
     if (QFileInfo(p).suffix().isEmpty())
         p += QStringLiteral(".md");
+#ifdef Q_OS_WASM
+    web::download(QFileInfo(p).fileName(), QByteArray::fromStdString(uiflow::exportMarkdown(doc_)),
+                  QStringLiteral("text/markdown"));
+#else
     std::string err;
     if (!writeFileAtomic(ss(p), uiflow::exportMarkdown(doc_), &err)) {
         emit errorOccurred(qs(err));
         return false;
     }
+#endif
     emit toast(tr("Exported %1").arg(QFileInfo(p).fileName()));
     return true;
 }
@@ -518,7 +550,24 @@ QString FlowController::suggestedFile(const QString& extension, const QString& b
     base.replace(QRegularExpression(QStringLiteral("[\\\\/:*?\"<>|]")), QStringLiteral("_"));
     if (base.isEmpty())
         base = QStringLiteral("app");
+    if (kWeb)
+        return base + QLatin1Char('.') + extension;  // name of the download, no folder
     return QUrl::fromLocalFile(QDir(dir).filePath(base + QLatin1Char('.') + extension)).toString();
+}
+
+void FlowController::browseFiles(const QString& accept, bool multiple, const QJSValue& callback)
+{
+#ifdef Q_OS_WASM
+    web::pickFiles(accept, multiple, [this, callback](const QList<QUrl>& urls) {
+        if (engine_ && callback.isCallable())
+            callback.call({engine_->toScriptValue(urls)});
+    });
+#else
+    Q_UNUSED(accept)
+    Q_UNUSED(multiple)
+    Q_UNUSED(callback)
+    qWarning("browseFiles() is only available in the web build");
+#endif
 }
 
 // --- screens

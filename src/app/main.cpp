@@ -83,6 +83,11 @@ int main(int argc, char* argv[])
     engine.loadFromModule("UiFlow", "Main");
     if (engine.rootObjects().isEmpty())
         return 1;
+#ifdef Q_OS_WASM
+    // The window fills the page's container element, without a window frame.
+    if (auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().value(0)))
+        window->showFullScreen();
+#endif
 
     if (parser.isSet(shotOpt)) {
         const QString out = QFileInfo(parser.value(shotOpt)).absoluteFilePath();

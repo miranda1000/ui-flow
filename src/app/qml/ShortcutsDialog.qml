@@ -31,7 +31,7 @@ FDialog {
             ["Esc", qsTr("Stop")] ] },
         { title: qsTr("File"), keys: [
             ["Ctrl+N  /  Ctrl+O", qsTr("New  /  open")],
-            ["Ctrl+S", qsTr("Save (autosave is on by default)")],
+            ["Ctrl+S", Doc.web ? qsTr("Download the app file") : qsTr("Save (autosave is on by default)")],
             ["Ctrl+Z  /  Ctrl+Shift+Z", qsTr("Undo  /  redo")] ] }
     ]
 

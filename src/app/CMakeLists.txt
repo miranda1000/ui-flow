@@ -67,6 +67,10 @@ else()
     message(STATUS "Inter font not found (UIFLOW_FONT_DIR): using the system font")
 endif()
 
+if(EMSCRIPTEN)
+    target_sources(uiflow PRIVATE WebPlatform.cpp WebPlatform.h)
+endif()
+
 target_compile_definitions(uiflow PRIVATE UIFLOW_VERSION="${UIFLOW_VERSION_STRING}")
 target_link_libraries(uiflow PRIVATE Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 uiflow_core)
 
@@ -88,3 +92,14 @@ else()
 endif()
 
 install(TARGETS uiflow RUNTIME DESTINATION .)
+
+# Web: a static site - our page instead of Qt's sample shell, the loader, the module.
+if(EMSCRIPTEN)
+    set(UIFLOW_WEB_ENTRY uiflow_entry)
+    set_target_properties(uiflow PROPERTIES QT_WASM_EXPORT_NAME ${UIFLOW_WEB_ENTRY})
+    configure_file(web/index.html.in "${CMAKE_CURRENT_BINARY_DIR}/web/index.html" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/web/index.html" DESTINATION .)
+    install(FILES "$<TARGET_FILE_DIR:uiflow>/${UIFLOW_EXE_NAME}.wasm" "$<TARGET_FILE_DIR:uiflow>/qtloader.js"
+            DESTINATION .)
+    install(FILES icons/app.svg DESTINATION . RENAME favicon.svg)
+endif()

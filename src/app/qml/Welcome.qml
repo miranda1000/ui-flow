@@ -5,6 +5,15 @@ import QtQuick.Layouts
 Rectangle {
     color: Theme.canvas
 
+    FIconButton {
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: 12
+        iconName: "github"
+        tip: qsTr("Help and feedback on GitHub")
+        onClicked: Qt.openUrlExternally(Ui.issuesUrl)
+    }
+
     ColumnLayout {
         anchors.centerIn: parent
         width: 440
@@ -118,6 +127,16 @@ Rectangle {
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSizeSmall
             color: Theme.textTertiary
+        }
+        Text {
+            Layout.topMargin: 6
+            text: qsTr("Need help? <a href=\"%1\">Ask or report an issue on GitHub</a>").arg(Ui.issuesUrl)
+            textFormat: Text.StyledText
+            linkColor: Theme.accent
+            font.pixelSize: Theme.fontSizeSmall
+            color: Theme.textTertiary
+            onLinkActivated: (link) => Qt.openUrlExternally(link)
+            HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
         }
     }
 }

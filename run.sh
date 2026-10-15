@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Build ui-flow for Linux and Windows (x64 + arm64) inside Docker (host helper; not the
-# container entrypoint).
+# Build ui-flow for Linux and Windows (x64 + arm64) and the web inside Docker (host
+# helper; not the container entrypoint).
 #
-#   ./run.sh                      Release build of all four targets -> dist/
+#   ./run.sh                      Release build of all five targets -> dist/
 #   ./run.sh -t windows-x64       only some targets (linux-x64, linux-arm64,
-#                                 windows-x64, windows-arm64; repeat or comma-separate)
+#                                 windows-x64, windows-arm64, web; repeat or comma-separate)
 #   ./run.sh --debug              Debug build
 #   ./run.sh --build              (re)build the Docker image first, then build
 #   ./run.sh --test               unit, GUI and interaction tests (screenshots in build/smoke/)
 #   ./run.sh --demo               write examples/demo.json (a sample app)
+#   ./run.sh --banners [--render-only]  regenerate the README screenshots and banners
+#                                 (scripts/readme-banners/; --render-only: banners only)
 #   ./run.sh --shell              open a shell in the build container instead
 #   other options go to scripts/build.sh (--help there)
 #
@@ -22,10 +24,11 @@ REBUILD_IMAGE=0
 OPEN_SHELL=0
 RUN_TESTS=0
 MAKE_DEMO=0
+MAKE_BANNERS=0
 BUILD_ARGS=()
 
 usage() {
-    sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     echo
     echo "Build options (scripts/build.sh):"
     sed -n '/^Usage:/,/^EOF/p' "$SCRIPT_DIR/scripts/build.sh" | sed '1d;$d'
@@ -37,6 +40,7 @@ while [[ $# -gt 0 ]]; do
         --shell) OPEN_SHELL=1 ;;
         --test) RUN_TESTS=1 ;;
         --demo) MAKE_DEMO=1 ;;
+        --banners) MAKE_BANNERS=1 ;;
         -h|--help) usage; exit 0 ;;
         *) BUILD_ARGS+=("$1") ;;
     esac
@@ -109,6 +113,9 @@ if [[ $RUN_TESTS -eq 1 ]]; then
 fi
 if [[ $MAKE_DEMO -eq 1 ]]; then
     exec "$DOCKER" run "${RUN_ARGS[@]}" python3 /src/scripts/make-demo.py /src/examples/demo.json
+fi
+if [[ $MAKE_BANNERS -eq 1 ]]; then
+    exec "$DOCKER" run "${RUN_ARGS[@]}" bash /src/scripts/readme-banners/make-banners.sh "${BUILD_ARGS[@]}"
 fi
 
 exec "$DOCKER" run "${RUN_ARGS[@]}" bash /src/scripts/build.sh "${BUILD_ARGS[@]}"

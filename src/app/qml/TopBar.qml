@@ -163,6 +163,12 @@ Rectangle {
             tip: Ui.view === "edit" ? qsTr("Play from this screen (F5 from the start)") : qsTr("Play from the start screen (F5)")
             onClicked: Ui.play(Ui.view === "edit" ? Ui.editScreen : Doc.startScreen)
         }
+        FIconButton {
+            Layout.leftMargin: 4
+            iconName: "github"
+            tip: qsTr("Help and feedback on GitHub")
+            onClicked: Qt.openUrlExternally(Ui.issuesUrl)
+        }
     }
 
     FMenu {
@@ -189,14 +195,15 @@ Rectangle {
             }
         }
         FMenuSeparator {}
-        FMenuItem { text: qsTr("Save"); shortcutText: "Ctrl+S"; onTriggered: Ui.main.save() }
-        FMenuItem { text: qsTr("Save as…"); shortcutText: "Ctrl+Shift+S"; onTriggered: Ui.main.saveAs() }
+        FMenuItem { text: Doc.web ? qsTr("Download") : qsTr("Save"); shortcutText: "Ctrl+S"; onTriggered: Ui.main.save() }
+        FMenuItem { id: saveAsItem; text: qsTr("Save as…"); shortcutText: "Ctrl+Shift+S"; onTriggered: Ui.main.saveAs() }
         FMenuItem { text: qsTr("Export flow as Markdown…"); onTriggered: Ui.main.exportMarkdown() }
         FMenuSeparator {}
         FMenuItem { text: qsTr("Add screens from images…"); onTriggered: Ui.main.addImages() }
         FMenuItem { text: qsTr("Paste image as screen"); shortcutText: "Ctrl+V"; onTriggered: Ui.main.pasteImage() }
         FMenuSeparator {}
         FMenuItem {
+            id: autosaveItem
             text: qsTr("Autosave")
             checkable: true
             checked: Doc.autosave
@@ -210,8 +217,20 @@ Rectangle {
         }
         FMenuSeparator {}
         FMenuItem { text: qsTr("Keyboard shortcuts"); shortcutText: "F1"; onTriggered: Ui.main.showShortcuts() }
+        FMenuItem { text: qsTr("Help and feedback (GitHub)"); onTriggered: Qt.openUrlExternally(Ui.issuesUrl) }
         FMenuItem { text: qsTr("Close app"); onTriggered: Ui.main.closeApp() }
-        FMenuItem { text: qsTr("Quit"); shortcutText: "Ctrl+Q"; onTriggered: Ui.main.quit() }
+        FMenuItem { id: quitItem; text: qsTr("Quit"); shortcutText: "Ctrl+Q"; onTriggered: Ui.main.quit() }
+
+        // Web: no recent files, no file name to choose, no autosave (saving downloads the
+        // file), nothing to quit.
+        Component.onCompleted: {
+            if (Doc.web) {
+                removeMenu(recentMenu)
+                removeItem(saveAsItem)
+                removeItem(autosaveItem)
+                removeItem(quitItem)
+            }
+        }
     }
 
     FMenu {

@@ -349,7 +349,7 @@ def hero(inp, out):
         b.chip(x, 318, label, icon)
         x += w + 16
     win = b.shot(inp, "canvas", (0, 0, 1440, 900), 170, 430, 1460, radius=22, shadow=0.22)
-    x, y = win(1392, 42)
+    x, y = win(1356, 42)  # center of the Play button
     b.tooltip(x, y, "Press Play to click through", anchor="t")
     b.save(out)
 

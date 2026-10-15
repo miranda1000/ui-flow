@@ -32,6 +32,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options("SHELL:-include ${PROJECT_SOURCE_DIR}/cmake/glibc-compat.h")
 endif()
 
+# WebAssembly: the core library reports malformed app files with exceptions, which
+# Emscripten disables by default. Use its JavaScript-based exception model: the one Qt for
+# WebAssembly is built and linked with (the two models cannot be mixed).
+if(EMSCRIPTEN)
+    add_compile_options(-fexceptions)
+    add_link_options(-fexceptions)
+endif()
+
 option(UIFLOW_BUILD_APP "Build the ui-flow application (Qt Quick UI)" ON)
 option(UIFLOW_BUILD_TESTS "Build the unit tests (core library only, no Qt needed)" OFF)
 
